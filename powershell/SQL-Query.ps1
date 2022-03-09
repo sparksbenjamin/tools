@@ -20,8 +20,6 @@ function SQL-Query{
             $output | Add-Member -Type NoteProperty -Name DatabaseName -Value $Database
             $output | Add-Member -Type NoteProperty -Name StartTime -Value (Get-Date)
             $SqlConnection = New-Object System.Data.SqlClient.SqlConnection
-            #$SqlConnection.ConnectionString = "Server = $SQLServer; Database = $SQLDBName; 
-            #User ID=sa; Password=FuBar4U#"
             $SqlConnection.ConnectionString = "Server = $Instance; Database = $Database; User ID=$UserName; Password=$PWD"
             $SqlConnection.add_infoMessage($handler)
             $SQLConnection.FireInfoMessageEventOnUserErrors = $true
