@@ -2,7 +2,14 @@ declare @tbl as varchar(255)
 declare @type as varchar(255)
 declare @index as varchar(255)
 declare @frag_per as varchar(255)
+DECLARE @DB as varchar(100)
+set @DB = 'JonasNET'
+
+
 DECLARE db_cursor CURSOR FOR 
+
+
+
 SELECT 
     t.NAME 'Table name',
 	i.NAME 'Index_name',
@@ -17,6 +24,7 @@ INNER JOIN
 WHERE
     AVG_FRAGMENTATION_IN_PERCENT > 3
 	AND fragment_count > 5
+	AND ips.page_count > 1000
 --	AND index_type_desc = 'HEAP'
 ORDER BY
     AVG_FRAGMENTATION_IN_PERCENT DESC, fragment_count
@@ -34,11 +42,19 @@ BEGIN
 --		set @alter = @alter + ' INDEX ' 
 		set @alter = @alter + 'INDEX ' +  @index + ' ON ' + @tbl + ' REORGANIZE'
 	ELSE
-		set @alter = @alter + @index + ' ON ' + @tbl + ' REBUILD'
+		set @alter = @alter + 'INDEX ' + @index + ' ON ' + @tbl + ' REBUILD'
 	print 'Working on ' + @tbl
 	
 	print @alter
-	exec(@alter)
+	BEGIN TRY  
+		exec(@alter)
+	END TRY  
+	BEGIN CATCH 
+		print 'Failed State:'
+		set @alter = 'USE ' + @DB + '; ALTER INDEX ALL ON ' + @tbl + ' REBUILD'
+		print @alter
+		exec @alter
+	END CATCH
     FETCH NEXT FROM db_cursor INTO @tbl,@index,@type,@frag_per
 END 
 
