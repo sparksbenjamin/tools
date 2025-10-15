@@ -4,7 +4,6 @@ The goal of this is to process PST files locally on the system and output a dire
 
 
 Exmaple:
-'''
+```
 ./pst_to_pdf.ps1 -PST <path_to_pst> -OUT <output_directory>
-
 ```
