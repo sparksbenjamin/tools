@@ -126,7 +126,11 @@ function ConvertTo-SafeFileName {
         $safeName = $safeName.Substring(0, $MaxLength)
     }
     
-    return if ($safeName) { $safeName } else { 'Untitled' }
+    if ($safeName) { 
+        return $safeName 
+    } else { 
+        return 'Untitled' 
+    }
 }
 
 # --------------------------------------------------------------------------- #
@@ -328,39 +332,45 @@ function Save-MailAsPDF {
         
         # Save attachments
         $attachmentsSaved = 0
-        if ($MailItem.Attachments.Count -gt 0) {
-            foreach ($attachment in $MailItem.Attachments) {
-                try {
-                    $attachmentName = ConvertTo-SafeFileName -Name $attachment.FileName
-                    $attachmentPath = Join-Path -Path $emailFolder -ChildPath $attachmentName
-                    
-                    # Handle duplicate attachment names
-                    $counter = 1
-                    while (Test-Path $attachmentPath) {
-                        $baseName = [System.IO.Path]::GetFileNameWithoutExtension($attachmentName)
-                        $extension = [System.IO.Path]::GetExtension($attachmentName)
-                        $attachmentName = "{0}_{1}{2}" -f $baseName, $counter, $extension
+        try {
+            $attachmentCount = $MailItem.Attachments.Count
+            if ($attachmentCount -gt 0) {
+                for ($i = 1; $i -le $attachmentCount; $i++) {
+                    try {
+                        $attachment = $MailItem.Attachments.Item($i)
+                        $attachmentName = ConvertTo-SafeFileName -Name $attachment.FileName
                         $attachmentPath = Join-Path -Path $emailFolder -ChildPath $attachmentName
-                        $counter++
+                        
+                        # Handle duplicate attachment names
+                        $counter = 1
+                        while (Test-Path $attachmentPath) {
+                            $baseName = [System.IO.Path]::GetFileNameWithoutExtension($attachmentName)
+                            $extension = [System.IO.Path]::GetExtension($attachmentName)
+                            $attachmentName = "{0}_{1}{2}" -f $baseName, $counter, $extension
+                            $attachmentPath = Join-Path -Path $emailFolder -ChildPath $attachmentName
+                            $counter++
+                        }
+                        
+                        $attachment.SaveAsFile($attachmentPath)
+                        $attachmentsSaved++
+                        $script:attachmentCount++
+                        
+                        # Try to convert to PDF if it's an Office document
+                        $pdfAttachmentPath = [System.IO.Path]::ChangeExtension($attachmentPath, '.pdf')
+                        if (ConvertTo-PDF -SourcePath $attachmentPath -DestinationPath $pdfAttachmentPath) {
+                            # Delete original file after successful conversion
+                            Remove-Item -Path $attachmentPath -Force
+                            $script:convertedAttachments++
+                        }
+                        
+                        [System.Runtime.InteropServices.Marshal]::ReleaseComObject($attachment) | Out-Null
+                    } catch {
+                        Write-Warning "Failed to save attachment from email '$subject': $_"
                     }
-                    
-                    $attachment.SaveAsFile($attachmentPath)
-                    $attachmentsSaved++
-                    $script:attachmentCount++
-                    
-                    # Try to convert to PDF if it's an Office document
-                    $pdfAttachmentPath = [System.IO.Path]::ChangeExtension($attachmentPath, '.pdf')
-                    if (ConvertTo-PDF -SourcePath $attachmentPath -DestinationPath $pdfAttachmentPath) {
-                        # Delete original file after successful conversion
-                        Remove-Item -Path $attachmentPath -Force
-                        $script:convertedAttachments++
-                    }
-                    
-                    [System.Runtime.InteropServices.Marshal]::ReleaseComObject($attachment) | Out-Null
-                } catch {
-                    Write-Warning "Failed to save attachment '$($attachment.FileName)' from email '$subject': $_"
                 }
             }
+        } catch {
+            Write-Warning "Error processing attachments for email '$subject': $_"
         }
         
         $script:successCount++
